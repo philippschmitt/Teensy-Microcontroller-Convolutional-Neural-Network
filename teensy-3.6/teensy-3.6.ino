@@ -24,8 +24,11 @@ void loop() {
   generate_sample(sample);
   // display sample on input screen
   display_8x8(sample);
+  
   // predict sample
-  nn_predict(sample, true);
+  // nn_predict(sample, true);
+
+  // train with current example
 
   delay(2000);
 }
