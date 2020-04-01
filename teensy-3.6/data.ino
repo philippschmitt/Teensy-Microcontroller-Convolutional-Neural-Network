@@ -39,17 +39,20 @@ const float sample_D_b[4][3] = {
 };
 
 // stores size information for all character samples, in order
-const int sample_dims[][2] = {
-	{6,4},
-	{4,3},
-	{6,4},
-	{4,3}
+// y,x, Y(char)
+const int sample_dims[][3] = {
+	{6,4, 1},
+	{4,3, 1},
+	{6,4, 0},
+	{4,3, 0}
 };
 
 
 // Work in progress
-// right now only gives X, not Y
-void generate_sample(float (*matrix)[8]) {
+// target:
+//  0 = D
+//	1 = C
+int generate_sample(float (*matrix)[8]) {
 	// select rand sample and place randomly on canvas
 	int sample = floor(random(0,N_SAMPLES));
 	// def. rand x position
@@ -70,6 +73,8 @@ void generate_sample(float (*matrix)[8]) {
 
 		}
 	}
+	// set Y
+	return sample_dims[sample][2];
 }
 
 

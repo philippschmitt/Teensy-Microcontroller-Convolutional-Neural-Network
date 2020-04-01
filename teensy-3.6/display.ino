@@ -12,7 +12,7 @@
 
 #define LED_PIN     0
 #define LED_COUNT   224 // total px count
-#define BRIGHTNESS  150
+#define BRIGHTNESS  50
 
 // Declare our NeoPixel strip object:
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRBW + NEO_KHZ800);
@@ -32,7 +32,8 @@ void display_test() {
   // assign memory for a data sample
   float matrix[8][8] = {-1};
   // generate a sample and display
-  generate_sample(matrix);
+  int Y = generate_sample(matrix);
+  Y--;  // this is just to remove the console warning of an unused Y
   display_8x8(matrix);
   delay(500);
 }

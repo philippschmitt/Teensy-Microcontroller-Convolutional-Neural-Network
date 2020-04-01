@@ -10,6 +10,9 @@
  *
 */
 
+#include <math.h>
+#define EULER 2.718281828459045235360287471352
+
 #define EPOCHS 					10000
 #define L_RATE 					0.001
 #define INPUT_SIZE			8
@@ -23,33 +26,33 @@
 
 float conv_weights[CONV_DEPTH][KERNEL_SIZE][KERNEL_SIZE] = {
 	{
-	  { 0.2569,  0.1105,  0.1674},
-	  { 0.1287, -0.1043,  0.5103},
-	  {-0.1522, -0.2983,  0.5761}
+	  { 0.2583,  0.1130,  0.1664},
+	  { 0.1290, -0.1066,  0.5152},
+	  {-0.1506, -0.3007,  0.5802}
 	},
 	{
-	  { 0.4487,  0.4797,  0.4105},
-	  {-0.2345, -0.3460, -0.2620},
-	  {-0.3920, -0.3163,  0.0459}
+	  { 0.4498,  0.4808,  0.4108},
+	  {-0.2379, -0.3478, -0.2646},
+	  {-0.3933, -0.3176,  0.0442}
 	},
 	{
-	  { 0.4300, -0.3331,  0.0822},
-	  {-0.1247, -0.1019, -0.1554},
-	  { 0.0019, -0.2639,  0.0248}
+	  { 0.4306, -0.3333,  0.0822},
+	  {-0.1255, -0.1022, -0.1554},
+	  { 0.0010, -0.2646,  0.0243}
 	},
 	{
-	  { 0.4221,  0.3933,  0.2805},
-	  {-0.4268, -0.3325,  0.0364},
-	  {-0.0887, -0.3105, -0.3442}
+	  { 0.4248,  0.3947,  0.2808},
+	  {-0.4287, -0.3338,  0.0354},
+	  {-0.0901, -0.3116, -0.3454}
 	}
 };
-float conv_bias[CONV_DEPTH] = {0.2463,  0.2489, -0.0247,  0.0242};
+float conv_bias[CONV_DEPTH] = {0.2444,  0.2503, -0.0244,  0.0267};
 float conv[CONV_DEPTH][6][6];
 float relu[CONV_DEPTH][6][6];
 float pool[CONV_DEPTH][2][2];
 
-float lin_weights[16] = { -0.5481, -0.3763, -0.2324, -0.3884,  0.1324,  0.7295,  0.0358,  0.1847, -0.1555,  0.3133,  0.0970, -0.3748,  0.1187,  0.6135,  0.2777,  0.2629 };
-float lin_bias[1] = {0.1862};
+float lin_weights[16] = { -0.5527, -0.3821, -0.2334, -0.3901,  0.1349,  0.7348,  0.0367,  0.1860, -0.1553,  0.3138,  0.0966, -0.3762,  0.1210,  0.6184,  0.2790,  0.2644 };
+float lin_bias[1] = {0.1875};
 float lin[16];
 
 
@@ -60,10 +63,7 @@ void nn_setup() {
 
 
 // compute gradient for a single sample
-void nn_predict(float (*X)[INPUT_SIZE], bool log) {
-
-	// output
-	float y = 0;
+float nn_predict(float (*X)[INPUT_SIZE], bool log) {
 
 	nn_convolve(X, conv);
 	display(conv[2], -1, 1);
@@ -87,7 +87,7 @@ void nn_predict(float (*X)[INPUT_SIZE], bool log) {
 	display(pool, 0, 3);
 
 	// Logging
-	if(log) {
+	if(log) {
 		Serial.println(" ");
 		Serial.println(F("pool"));
 		for(int y=0; y<2; y++){
@@ -110,19 +110,20 @@ void nn_predict(float (*X)[INPUT_SIZE], bool log) {
 		}
 	}
 
-	y = nn_linear(lin);
+	float y = nn_linear(lin);
 
 	// Logging
 	if(log) {
 		Serial.println(" ");
 		Serial.println(y, 4);
 		if(y > 0) {
-			Serial.println("Prediction: " + "C");
+			Serial.println("Predict C");
 		} else {
-			Serial.println("Prediction: " + "D");
+			Serial.println("Predict D");
 		}
 	}
 
+	return y;
 }
 
 
@@ -203,4 +204,48 @@ float nn_linear(float *in) {
 	out += lin_bias[0];
 	return out;
 }
+
+
+// pseudocode for now
+void nn_train(float (*X)[INPUT_SIZE], float Y) {
+	// predict y
+	float y = nn_predict(X, false);
+	float loss = nn_loss(y,Y);
+	
+	Serial.println(y);
+	Serial.println(Y);
+	Serial.println(loss, 6);
+	Serial.println(" ");
+
+	/*
+	// calculate error
+	nn_loss();
+	// backpropagate
+	nn_backprop();
+	// update weights
+	nn_update();
+
+	*/
+}
+
+
+float sigmoid(float y) {
+	return 1 / (1 + pow(EULER, -y));
+}
+
+// # def binary_cross_entropy(input, y): return - (pred.log()*y + (1-y)*(1-pred).log()).mean()
+// no mean for now, because it's a single input atm
+// will expand later
+float binary_cross_entropy(float y, float Y) {
+	return - (log(y)*Y + (1-Y)*log(1-y));
+}
+
+// BCE loss with logits
+float nn_loss(float y, float Y) {
+	return binary_cross_entropy(sigmoid(y), Y);
+}
+
+
+
+
 
