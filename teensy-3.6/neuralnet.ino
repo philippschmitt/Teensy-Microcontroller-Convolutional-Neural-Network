@@ -13,48 +13,47 @@
 #include <math.h>
 #define EULER 2.718281828459045235360287471352
 
-#define EPOCHS 					10000
-#define L_RATE 					0.001
-#define INPUT_SIZE			8
-#define CONV_DEPTH			4
-#define KERNEL_SIZE 		3
-#define CONV_SIZE				6 			// divide: INPUT_SIZE / KERNEL_SIZE
-#define POOLING_KERNEL 	3
-
-
 // for now, weights are initialized with distribution copied from pytorch currently
 
 float conv_weights[CONV_DEPTH][KERNEL_SIZE][KERNEL_SIZE] = {
 	{
-	  { 0.2583,  0.1130,  0.1664},
-	  { 0.1290, -0.1066,  0.5152},
-	  {-0.1506, -0.3007,  0.5802}
+		{ 0.2017441, 0.00308158, 0.04606714},
+		{ 0.07480983, 0.11689769, 0.30476084},
+		{-0.24218692, -0.14427844, 0.19337441}
 	},
 	{
-	  { 0.4498,  0.4808,  0.4108},
-	  {-0.2379, -0.3478, -0.2646},
-	  {-0.3933, -0.3176,  0.0442}
+		{ 0.30300942, 0.30281624, 0.32107574},
+		{ 0.04421493, -0.2898609, -0.02634343},
+		{-0.21836622, -0.30158904, 0.25087616}
 	},
 	{
-	  { 0.4306, -0.3333,  0.0822},
-	  {-0.1255, -0.1022, -0.1554},
-	  { 0.0010, -0.2646,  0.0243}
+		{0.30892864, -0.33250934, 0.06331794},
+		{-0.06391373, -0.05740379, -0.15258563},
+		{ 0.10691884, -0.1978942, 0.11555099}
 	},
 	{
-	  { 0.4248,  0.3947,  0.2808},
-	  {-0.4287, -0.3338,  0.0354},
-	  {-0.0901, -0.3116, -0.3454}
+		{ 0.18961638, 0.25415832, 0.14558695},
+		{-0.33572823, -0.22541218, 0.14864472},
+		{ 0.05087484, -0.26549476, -0.21621124}
 	}
 };
-float conv_bias[CONV_DEPTH] = {0.2444,  0.2503, -0.0244,  0.0267};
+float conv_bias[CONV_DEPTH] = { 0.28327325,0.23270558,-0.10685033,-0.07848678 };
 float conv[CONV_DEPTH][6][6];
 float relu[CONV_DEPTH][6][6];
 float pool[CONV_DEPTH][2][2];
 
-float lin_weights[16] = { -0.5527, -0.3821, -0.2334, -0.3901,  0.1349,  0.7348,  0.0367,  0.1860, -0.1553,  0.3138,  0.0966, -0.3762,  0.1210,  0.6184,  0.2790,  0.2644 };
-float lin_bias[1] = {0.1875};
-float lin[16];
+float flatten_dy[CONV_DEPTH][2][2];
+float pool_dy[CONV_DEPTH][6][6];
+float relu_dy[CONV_DEPTH][6][6];
 
+float lin_weights[16] = {-2.2068898e-01,-2.1241444e-04,-1.3680935e-01,-1.7643958e-01,1.5825884e-02,1.4667754e-01,-6.2232032e-02,1.5228274e-01,-1.4018767e-01,2.4638823e-01,1.6870129e-01,-2.3665445e-01,-1.4726459e-02,1.2934357e-01,1.0478461e-01,1.1715993e-01};
+float lin_bias[1] = {0.15213825};
+float lin[16];
+float lin_dy[16]; // derivative of lin with respect to y
+
+// vars for weight gradients
+float lin_dw[16]; // derivative of lin with respect to w(eights)
+float conv_dw[CONV_DEPTH][KERNEL_SIZE][KERNEL_SIZE];
 
 // setup neural net
 void nn_setup() {
@@ -62,14 +61,196 @@ void nn_setup() {
 }
 
 
+void nn_conv(float (*X)[INPUT_SIZE], float (*out)[6][6]) {
+	// go over depth / 4 activations
+	for(int d=0; d<CONV_DEPTH; d++){
+		// slide kernel over X
+		for(int y=0; y<CONV_SIZE; y++){
+			for(int x=0; x<CONV_SIZE; x++){
+				float sum = 0.;
+				// compute weighted sum for all input kernel weight pairs
+				for(int cy=0; cy<KERNEL_SIZE; cy++){
+					for(int cx=0; cx<KERNEL_SIZE; cx++){
+						sum += X[y+cy][x+cx] * conv_weights[d][cy][cx];
+					}
+				}
+				// save activation
+				out[d][y][x] = sum + conv_bias[d];
+			}   
+		}
+	}
+}
+
+void nn_conv_backwards(float (*dy)[6][6], float (*X)[INPUT_SIZE], float (*dw)[KERNEL_SIZE][KERNEL_SIZE]) {
+	// zero the dw tensor
+	set_matrix(dw, 0);
+	// go over depth / 4 activations
+	for(int d=0; d<CONV_DEPTH; d++) {
+		// go over kernel
+		for(int fy=0; fy<KERNEL_SIZE; fy++){
+			for(int fx=0; fx<KERNEL_SIZE; fx++){
+				// compute dw, sum over input * dy
+				for(int y=0; y<6; y++){
+					for(int x=0; x<6; x++){
+						dw[d][fy][fx] += dy[d][y][x] * X[y+fy][x+fx];
+					}
+				}
+			}
+		}
+	}
+}
+
+
+void nn_relu(float (*in)[6][6], float (*out)[6][6]) {
+	// go over activations
+	for(int d=0; d<CONV_DEPTH; d++){
+    for(int y=0; y<CONV_SIZE; y++){
+    	for(int x=0; x<CONV_SIZE; x++){
+    		out[d][y][x] = max(0, in[d][y][x]);
+  	 	}
+    }
+	}
+}
+
+void nn_relu_backwards(float (*dx)[6][6], float (*X)[6][6], float (*dy)[6][6]) {
+	// go over activations
+	for(int d=0; d<CONV_DEPTH; d++){
+    for(int y=0; y<CONV_SIZE; y++){
+    	for(int x=0; x<CONV_SIZE; x++){
+    		dy[d][y][x] = dx[d][y][x]; // copy dx to dy
+    		if(X[d][y][x] <= 0) {
+    			dy[d][y][x] = 0;
+    		}
+  	 	}
+    }
+	}
+}
+
+
+void nn_pool(float (*in)[6][6], float (*out)[2][2]) {
+	// go over activations
+	for(int d=0; d<CONV_DEPTH; d++){
+		for(int y=0; y<(CONV_SIZE/POOLING_KERNEL); y++){
+			for(int x=0; x<(CONV_SIZE/POOLING_KERNEL); x++){
+				// at this point, 6x6 activation is split in four 2x2 subsections
+				float p = 0.;
+				// now maxpool for each subsection
+				for(int py=0; py<POOLING_KERNEL; py++){
+					for(int px=0; px<POOLING_KERNEL; px++){
+						p = max(p, in[d][y*POOLING_KERNEL+py][x*POOLING_KERNEL+px]);
+					}
+				}
+				// save activation
+				out[d][y][x] = p;
+			}
+		}
+	}
+}
+
+// g 	incoming gradient
+// x  input of pool layer
+// y  output of pool layer
+// dy gradient to pass on to prev layer (i.e. relu)
+void nn_pool_backwards(float (*g)[2][2], float (*X)[6][6], float (*Y)[2][2], float (*dy)[6][6]) {
+	// match pool output y with pool input x to find max values
+	// could cache pool positions during inference, but what does it matter ...
+	for(int d=0; d<CONV_DEPTH; d++){
+		for(int y=0; y<CONV_SIZE/POOLING_KERNEL; y++){
+			for(int x=0; x<CONV_SIZE/POOLING_KERNEL; x++){
+				// helper: if there are multiple identical max values, we set done = true after the first one,
+				// to skip to the next pool subsection
+				bool done = false;
+				// iterate over pool input with kernel
+				for(int py=0; py<POOLING_KERNEL; py++){
+					if(done) {
+						break; 
+					}
+					for(int px=0; px<POOLING_KERNEL; px++){
+						if(done) { break; }
+						if(X[d][y*POOLING_KERNEL+py][x*POOLING_KERNEL+px] == Y[d][y][x]) {
+							dy[d][y*POOLING_KERNEL+py][x*POOLING_KERNEL+px] = g[d][y][x];
+							done = true;
+						} else {
+							dy[d][y*POOLING_KERNEL+py][x*POOLING_KERNEL+px] = 0;
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+
+void nn_flatten(float (*in)[2][2], float *out) {
+	int i = 0;
+	for(int d=0; d<CONV_DEPTH; d++){
+		for(int y=0; y<CONV_SIZE/POOLING_KERNEL; y++){
+			for(int x=0; x<CONV_SIZE/POOLING_KERNEL; x++){
+				// add to 0 so it does a real copy of val
+				out[i] = in[d][y][x];
+				i++;
+			}
+		}
+	}
+}
+
+void nn_flatten_backwards(float *X, float (*dy)[2][2]) {
+	int i = 0;
+	for(int d=0; d<CONV_DEPTH; d++){
+		for(int y=0; y<CONV_SIZE/POOLING_KERNEL; y++){
+			for(int x=0; x<CONV_SIZE/POOLING_KERNEL; x++){
+				dy[d][y][x] = X[i];
+				i++;
+			}
+		}
+	}
+}
+
+
+float nn_linear(float *in) {
+	float out = 0;
+	// y=xAT+b
+	for(int i=0; i<16; i++){
+		out += in[i] * lin_weights[i];
+	}
+	out += lin_bias[0];
+	return out;
+}
+
+void nn_linear_backwards(float dL, float *W, float *X, float *dy, float *dW) {
+	// compute dy, dW
+	for(int i=0; i<16; i++){
+		dy[i] = W[i] * dL;
+		dW[i] = X[i] * dL;
+	}
+}
+
+
+float sigmoid(float x) {
+	return 1 / (1 + pow(EULER, -x));
+}
+
+// BCE loss with logits
+float nn_loss(float y, float Y) {
+	float max_val = max(0, -y);
+	//(1-Y) * y + max_val + math.log((math.e ** -max_val) + math.e ** (-y-max_val))
+	return (1-Y) * y + max_val + logf( pow(EULER, -max_val) + pow(EULER, -y-max_val) );
+}
+
+float nn_loss_backwards(float y, float Y) {
+	return (sigmoid(y) - Y) * 1;
+}
+
+
+
 // compute gradient for a single sample
 float nn_predict(float (*X)[INPUT_SIZE], bool log) {
 
-	nn_convolve(X, conv);
-	display(conv[2], -1, 1);
+	nn_conv(X, conv);
+	//display(conv[1], -1, 1);
 	
 	nn_relu(conv, relu);
-	display(relu[2], 0, 1);
+	// display(relu[2], 0, 1);
 
 	// Logging
 	if(log) {
@@ -84,7 +265,7 @@ float nn_predict(float (*X)[INPUT_SIZE], bool log) {
 	}
 
 	nn_pool(relu, pool);
-	display(pool, 0, 3);
+	// display(pool, 0, 3);
 
 	// Logging
 	if(log) {
@@ -127,125 +308,69 @@ float nn_predict(float (*X)[INPUT_SIZE], bool log) {
 }
 
 
-void nn_convolve(float (*X)[INPUT_SIZE], float (*out)[6][6]) {
-	// go over depth / 4 activations
-	for(int d=0; d<CONV_DEPTH; d++){
-		// slide kernel over X
-		for(int y=0; y<CONV_SIZE; y++){
-			for(int x=0; x<CONV_SIZE; x++){
-				float sum = 0.;
-				// compute weighted sum for all input kernel weight pairs
-				for(int cy=0; cy<KERNEL_SIZE; cy++){
-					for(int cx=0; cx<KERNEL_SIZE; cx++){
-						sum += X[y+cy][x+cx] * conv_weights[d][cy][cx];
-					}
-				}
-				// save activation
-				out[d][y][x] = sum + conv_bias[d];
-			}   
-		}
-	}
-}
 
-
-void nn_relu(float (*in)[6][6], float (*out)[6][6]) {
-	// go over activations
-	for(int d=0; d<CONV_DEPTH; d++){
-    for(int y=0; y<CONV_SIZE; y++){
-    	for(int x=0; x<CONV_SIZE; x++){
-    		out[d][y][x] = max(0, in[d][y][x]);
-  	 	}
-    }
-	}
-}
-
-
-void nn_pool(float (*in)[6][6], float (*out)[2][2]) {
-	// go over activations
-	for(int d=0; d<CONV_DEPTH; d++){
-		for(int y=0; y<(CONV_SIZE/POOLING_KERNEL); y++){
-			for(int x=0; x<(CONV_SIZE/POOLING_KERNEL); x++){
-				// at this point, 6x6 activation is split in four 2x2 subsections
-				float p = 0.;
-				// now maxpool for each subsection
-				for(int py=0; py<POOLING_KERNEL; py++){
-					for(int px=0; px<POOLING_KERNEL; px++){
-						p = max(p, in[d][y*POOLING_KERNEL+py][x*POOLING_KERNEL+px]);
-					}
-				}
-				// save activation
-				out[d][y][x] = p;
-			}
-		}
-	}
-}
-
-
-void nn_flatten(float (*in)[2][2], float *out) {
-	int i = 0;
-	for(int d=0; d<CONV_DEPTH; d++){
-		for(int y=0; y<CONV_SIZE/POOLING_KERNEL; y++){
-			for(int x=0; x<CONV_SIZE/POOLING_KERNEL; x++){
-				// add to 0 so it does a real copy of val
-				out[i] = in[d][y][x];
-				i++;
-			}
-		}
-	}
-}
-
-
-float nn_linear(float *in) {
-	float out = 0.;
-	// y=xAT+b
-	for(int i=0; i<16; i++){
-		out += in[i] * lin_weights[i];
-	}
-	out += lin_bias[0];
-	return out;
-}
-
-
-// pseudocode for now
-void nn_train(float (*X)[INPUT_SIZE], float Y) {
+float nn_train(float (*X)[INPUT_SIZE], float Y, bool logging) {
 	// predict y
 	float y = nn_predict(X, false);
-	float loss = nn_loss(y,Y);
-	
-	Serial.println(y);
-	Serial.println(Y);
-	Serial.println(loss, 6);
-	Serial.println(" ");
+	// Loss
+	float L = nn_loss(y,Y);
+	// Derivative of Loss
+	float dL = nn_loss_backwards(y,Y);
 
-	/*
-	// calculate error
-	nn_loss();
-	// backpropagate
-	nn_backprop();
+	// compute the gradient
+	nn_linear_backwards(dL, lin_weights, lin, lin_dy, lin_dw);
+	nn_flatten_backwards(lin_dy, flatten_dy);
+	nn_pool_backwards(flatten_dy, relu, pool, pool_dy);
+	nn_relu_backwards(pool_dy, conv, relu_dy);
+	nn_conv_backwards(relu_dy, X, conv_dw);
+
 	// update weights
-	nn_update();
+	nn_update_lin(lin_weights, lin_dw, dL);
+	nn_update_conv(conv_weights, conv_dw, conv_bias, relu_dy);
 
-	*/
+	// Log progress to console
+  Serial.print("pred: ");
+  Serial.print(y);
+  Serial.print(" Y: ");
+  Serial.print(Y);
+  Serial.print(" ");
+
+  display(conv_weights, -1, 1);
+
+	return L;
 }
 
 
-float sigmoid(float y) {
-	return 1 / (1 + pow(EULER, -y));
-}
+void nn_update_lin(float *W, float *dw, float dL) {
+	for(int i=0; i<((CONV_SIZE/POOLING_KERNEL)^2*CONV_DEPTH); i++){
+		W[i] -= L_RATE * dw[i];
+	}
 
-// # def binary_cross_entropy(input, y): return - (pred.log()*y + (1-y)*(1-pred).log()).mean()
-// no mean for now, because it's a single input atm
-// will expand later
-float binary_cross_entropy(float y, float Y) {
-	return - (log(y)*Y + (1-Y)*log(1-y));
-}
-
-// BCE loss with logits
-float nn_loss(float y, float Y) {
-	return binary_cross_entropy(sigmoid(y), Y);
+	// bias: db = dL
+	lin_bias[0] -= dL * L_RATE;
 }
 
 
+void nn_update_conv(float (*W)[KERNEL_SIZE][KERNEL_SIZE], float (*dw)[KERNEL_SIZE][KERNEL_SIZE], float (*b), float (*dy)[6][6]) {
+	// update weights
+	for(int d=0; d<CONV_DEPTH; d++){
+		for(int y=0; y<KERNEL_SIZE; y++){
+		  for(int x=0; x<KERNEL_SIZE; x++){
+		  	W[d][y][x] -= dw[d][y][x] * L_RATE;
+		  }
+		}
+	}
+	// update bias
+	for(int d=0; d<CONV_DEPTH; d++){
+		float db = 0;
+		for(int y=0; y<6; y++){
+		  for(int x=0; x<6; x++){
+		  	db += dy[d][y][x];
+		  }
+		}
+		b[d] -= db * L_RATE;
+	}
+}
 
 
 

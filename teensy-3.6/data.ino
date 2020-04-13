@@ -73,18 +73,49 @@ int generate_sample(float (*matrix)[8]) {
 
 		}
 	}
-	// set Y
+	// return Y
 	return sample_dims[sample][2];
 }
 
 
-// right now this is hard coded for 8x8 input matrix.
-// will extend to allow for other dims if necessary
+// Fill tensor with set value
+// Copies for different tensor dimensions
+// 1x8x8
 void set_matrix (float (*matrix)[8], float value) {
 	for(int y=0; y<8; y++){
 		for(int x=0; x<8; x++){
 			matrix[y][x] = value;     
 		}   
+	}
+}
+// 4x6x6
+void set_matrix (float (*matrix)[6][6], float value) {
+	for(int d=0; d<CONV_DEPTH; d++){
+		for(int y=0; y<6; y++){
+			for(int x=0; x<6; x++){
+				matrix[d][y][x] = value;     
+			}   
+		}
+	}
+}
+// 4x3x3
+void set_matrix (float (*matrix)[KERNEL_SIZE][KERNEL_SIZE], float value) {
+	for(int d=0; d<CONV_DEPTH; d++){
+		for(int y=0; y<KERNEL_SIZE; y++){
+			for(int x=0; x<KERNEL_SIZE; x++){
+				matrix[d][y][x] = value;     
+			}   
+		}
+	}
+}
+// 4x2x2
+void set_matrix (float (*matrix)[CONV_SIZE/POOLING_KERNEL][CONV_SIZE/POOLING_KERNEL], float value) {
+	for(int d=0; d<CONV_DEPTH; d++){
+		for(int y=0; y<CONV_SIZE/POOLING_KERNEL; y++){
+			for(int x=0; x<CONV_SIZE/POOLING_KERNEL; x++){
+				matrix[d][y][x] = value;     
+			}   
+		}
 	}
 }
 

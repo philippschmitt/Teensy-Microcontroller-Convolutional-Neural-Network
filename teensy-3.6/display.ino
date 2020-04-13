@@ -79,7 +79,40 @@ void display (float (*data)[6], int mapLow, int mapHigh) {
       matrix[y][x] = data[y][x];
     }
   }
-  delay(1000);
+  display_8x8(matrix, mapLow, mapHigh);
+}
+
+
+// for activation functions only right now
+// will extend to be general display function for any display
+void display (float (*data)[3][3], int mapLow, int mapHigh) {
+
+  // will be extended. for now, simply pack in 8x8 matrix and display on input display
+  float matrix[8][8];
+  set_matrix(matrix, -1);
+  for(int y=0; y<3; y++){
+    for(int x=0; x<3; x++){
+      matrix[y][x] = data[0][y][x];
+    }
+  }
+
+  for(int y=0; y<3; y++){
+    for(int x=5; x<8; x++){
+      matrix[y][x] = data[1][y][x];
+    }
+  }
+
+  for(int y=5; y<8; y++){
+    for(int x=0; x<3; x++){
+      matrix[y][x] = data[2][y][x];
+    }
+  }
+
+  for(int y=5; y<8; y++){
+    for(int x=5; x<8; x++){
+      matrix[y][x] = data[3][y][x];
+    }
+  }
   display_8x8(matrix, mapLow, mapHigh);
 }
 
@@ -108,7 +141,6 @@ void display(float (*data)[2][2], int mapLow, int mapHigh) {
   matrix[7][6] = data[2][1][0];
   matrix[7][7] = data[2][1][1];
 
-  delay(1000);
   display_8x8(matrix, mapLow, mapHigh);
 }
 
