@@ -136,10 +136,10 @@ void display(float (*data)[2][2], int mapLow, int mapHigh) {
   matrix[5][4] = data[2][1][0];
   matrix[5][5] = data[2][1][1];
 
-  matrix[6][6] = data[2][0][0];
-  matrix[6][7] = data[2][0][1];
-  matrix[7][6] = data[2][1][0];
-  matrix[7][7] = data[2][1][1];
+  matrix[6][6] = data[3][0][0];
+  matrix[6][7] = data[3][0][1];
+  matrix[7][6] = data[3][1][0];
+  matrix[7][7] = data[3][1][1];
 
   display_8x8(matrix, mapLow, mapHigh);
 }

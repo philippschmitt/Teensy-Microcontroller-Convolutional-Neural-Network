@@ -265,7 +265,8 @@ float nn_predict(float (*X)[INPUT_SIZE], bool log) {
 	}
 
 	nn_pool(relu, pool);
-	// display(pool, 0, 3);
+	display(pool, 0, 3);
+	delay(200);
 
 	// Logging
 	if(log) {
@@ -335,7 +336,7 @@ float nn_train(float (*X)[INPUT_SIZE], float Y, bool logging) {
   Serial.print(Y);
   Serial.print(" ");
 
-  display(conv_weights, -1, 1);
+  // display(conv_weights, -1, 1);
 
 	return L;
 }
