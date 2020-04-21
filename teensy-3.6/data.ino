@@ -89,7 +89,7 @@ void set_matrix (float (*matrix)[8], float value) {
 	}
 }
 // 4x6x6
-void set_matrix (float (*matrix)[6][6], float value) {
+void set_matrix (float (*matrix)[CONV_SIZE][CONV_SIZE], float value) {
 	for(int d=0; d<CONV_DEPTH; d++){
 		for(int y=0; y<6; y++){
 			for(int x=0; x<6; x++){
@@ -116,6 +116,12 @@ void set_matrix (float (*matrix)[CONV_SIZE/POOLING_KERNEL][CONV_SIZE/POOLING_KER
 				matrix[d][y][x] = value;     
 			}   
 		}
+	}
+}
+// 1x16
+void set_matrix(float *matrix, float value) {
+	for(int i=0; i<16; i++){
+		matrix[i] = value;
 	}
 }
 

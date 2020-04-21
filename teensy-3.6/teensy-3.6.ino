@@ -12,6 +12,7 @@
 #define KERNEL_SIZE     3
 #define CONV_SIZE       6       // divide: INPUT_SIZE / KERNEL_SIZE
 #define POOLING_KERNEL  3
+#define POOL_SIZE       2       // divide: CONV_SIZE / POOLING_KERNEL
 
 // count epochs
 int epoch = 0;
@@ -36,33 +37,15 @@ void loop() {
   // generate a random sample: fills passed matrix, returns Y
   int Y = generate_sample(sample);
 
-  // // dev overwrite: fixed sample, control group in ipy notebook
-  
-  // float sample[8][8] = {
-  //   {0., 0., 0., 0., 0., 0., 0., 0.},
-  //   {0., 0., 0., 0., 1., 1., 1., 0.},
-  //   {0., 0., 0., 1., 0., 0., 0., 0.},
-  //   {0., 0., 0., 1., 0., 0., 0., 0.},
-  //   {0., 0., 0., 1., 0., 0., 0., 0.},
-  //   {0., 0., 0., 1., 0., 0., 0., 0.},
-  //   {0., 0., 0., 0., 1., 1., 1., 0.},
-  //   {0., 0., 0., 0., 0., 0., 0., 0.}
-  // };
-  // int Y = 1;
-  
   // display sample on input screen
-  // display_8x8(sample);
+  display_8x8(sample);
   
   // predict sample
   // float y = nn_predict(sample, true);
 
-  // train with current example
+  // train with current sample
   float loss = nn_train(sample, Y, true);
   epoch++;
-
-  if(epoch%2500==0){
-    delay(5000);
-  }
 
   Serial.print(epoch);
   Serial.print("/");
