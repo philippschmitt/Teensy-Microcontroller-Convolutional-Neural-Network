@@ -5,7 +5,7 @@
  *
 */
 
-#define EPOCHS          10000
+#define EPOCHS          20000       // def: 20000
 #define L_RATE          0.001
 #define INPUT_SIZE      8
 #define CONV_DEPTH      4
@@ -22,11 +22,21 @@ void setup() {
   Serial.begin(9600);
   // setup neopixels
   setup_display();
+	// generates rand inputs and displays
+  // display_test();
+  
   // initialize the neural net
   nn_setup();
 
-	// generates rand inputs and displays
-  // display_test();
+  // setup phyiscal weights
+  weights_setup();
+
+  // move weights to match nn state
+  Serial.println("set weights to initial neural net state");
+  weights_init();
+
+  Serial.println("setup complete");
+  Serial.println("\n");
 }
 
 void loop() {
@@ -38,18 +48,26 @@ void loop() {
   int Y = generate_sample(sample);
 
   // display sample on input screen
-  display_8x8(sample);
+  // display_8x8(sample);
   
   // predict sample
   // float y = nn_predict(sample, true);
 
   // train with current sample
-  float loss = nn_train(sample, Y, true);
-  epoch++;
+  if(epoch < EPOCHS) {
+    float loss = nn_train(sample, Y, false);
+    epoch++;
+    // Logging
+    if(epoch % 50 == 0) {
+      Serial.print(epoch);
+      Serial.print("/");
+      Serial.print(EPOCHS);
+      Serial.print(" ");
+      Serial.println(loss);
 
-  Serial.print(epoch);
-  Serial.print("/");
-  Serial.print(EPOCHS);
-  Serial.print(" ");
-  Serial.println(loss);
+      // only move weights every couple of epochs
+      int delta = weights_update();
+    }
+  }
+
 }

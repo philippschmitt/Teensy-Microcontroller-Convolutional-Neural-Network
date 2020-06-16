@@ -364,7 +364,7 @@ float nn_predict(float (*X)[INPUT_SIZE], bool log) {
 
 float nn_train(float (*X)[INPUT_SIZE], float Y, bool logging) {
 	// predict y
-	float y = nn_predict(X, false);
+	float y = nn_predict(X, logging);
 	// Loss
 	float L = nn_loss(y,Y);
 	// Derivative of Loss (it's just easier to calc. here and pass to functions)
@@ -377,11 +377,13 @@ float nn_train(float (*X)[INPUT_SIZE], float Y, bool logging) {
 	nn_update(dL);
 
 	// Log progress to console
-  Serial.print("pred: ");
-  Serial.print(y);
-  Serial.print(" Y: ");
-  Serial.print(Y);
-  Serial.print(" ");
+	if(logging) {
+	  Serial.print("pred: ");
+	  Serial.print(y);
+	  Serial.print(" Y: ");
+	  Serial.print(Y);
+	  Serial.print(" ");
+	}
 
   // display(conv_weights, -1, 1);
 
