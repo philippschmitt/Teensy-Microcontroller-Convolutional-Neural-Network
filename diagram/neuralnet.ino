@@ -59,6 +59,10 @@ void nn_setup() {
 
 }
 
+float nn_read_weight() {
+	return conv_weights[0][2][2];
+}
+
 
 void nn_conv(float (*X)[INPUT_SIZE], float (*out)[CONV_SIZE][CONV_SIZE]) {
 	// go over depth / 4 activations
@@ -302,7 +306,12 @@ void nn_update_conv(float (*W)[KERNEL_SIZE][KERNEL_SIZE], float (*dw)[KERNEL_SIZ
 float nn_predict(float (*X)[INPUT_SIZE], bool log) {
 
 	nn_conv(X, conv);
-	//display(conv[1], -1, 1);
+
+	// display convs
+	display(conv[0], 1, -1, 1, false);
+	display(conv[1], 2, -1, 1, false);
+	display(conv[2], 3, -1, 1, false);
+	display(conv[3], 4, -1, 1, true); // only send update after all are changed
 	
 	nn_relu(conv, relu);
 	// display(relu[2], 0, 1);
@@ -389,4 +398,3 @@ float nn_train(float (*X)[INPUT_SIZE], float Y, bool logging) {
 
 	return L;
 }
-

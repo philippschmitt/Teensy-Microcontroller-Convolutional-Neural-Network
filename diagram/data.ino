@@ -57,8 +57,8 @@ int generate_sample(float (*matrix)[8]) {
 	int sample = floor(random(0,N_SAMPLES));
 	// def. rand x position
 	//int x_minMax[] = {0, 8-sample_dims[sample][1]};
-	int x_pos = round(random(0, 8-sample_dims[sample][1]));
-	int y_pos = round(random(0, 8-sample_dims[sample][0]));
+	int x_pos = round(random(0, 9-sample_dims[sample][1]));
+	int y_pos = round(random(0, 9-sample_dims[sample][0]));
 	// place letter in 8x8 matrix
 	for(int y=0; y < sample_dims[sample][0]; y++) {
 		for(int x=0; x<sample_dims[sample][1]; x++) {

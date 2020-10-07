@@ -1,18 +1,18 @@
 /* 
  *  CONTROL PIXEL DISPLAYS
  *  
- *  1x    8x8 input
- *  4x    6x6 activation
- *  4x    2x2 pool
- *
- *  Currently only one 8x8 pixel matrix connected
+ *  1x    8x8  input         ID: 0
+ *  4x    6x6  activation    ID: 1-4
+ *  4x    2x2  pool          ID: 5-8 
+ *  1x    16x1 lin           ID: 9
+
 */
 
 #include <Adafruit_NeoPixel.h>
 
-#define LED_PIN     0
-#define LED_COUNT   224 // total px count
-#define BRIGHTNESS  50
+#define LED_PIN     1
+#define LED_COUNT   208 // total px count
+#define BRIGHTNESS  25
 
 // Declare our NeoPixel strip object:
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRBW + NEO_KHZ800);
@@ -21,7 +21,7 @@ Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRBW + NEO_KHZ800);
 unsigned int display_seq[LED_COUNT];
 
 
-void setup_display() {
+void display_setup() {
   strip.begin();           // INITIALIZE NeoPixel strip object (REQUIRED)
   strip.show();            // Turn OFF all pixels ASAP
   strip.setBrightness(BRIGHTNESS); // Set BRIGHTNESS to about 1/5 (max = 255)
@@ -34,18 +34,15 @@ void display_test() {
   // generate a sample and display
   int Y = generate_sample(matrix);
   Y--;  // this is just to remove the console warning of an unused Y
-  display_8x8(matrix);
+  display(matrix, 0, 0, 1, true);
   delay(500);
 }
 
 
-// set the pointers for the arr
-// theoretically then I can update the data without having reorder stuff
-void display_8x8 (float (*data)[8]) {
-  display_8x8(data, 0, 1);
-}
-
-void display_8x8 (float (*data)[8], int mapLow, int mapHigh) {
+void display (float (*data)[8], int displayID, int mapLow, int mapHigh, bool update) {
+  if(displayID != 0) {
+    Serial.println("Data/display mismatch");
+  }
   // cursor is position in overall display arr (224 neopixels)
   int cursor = 0;
   int size = 8; // one dimension
@@ -63,30 +60,41 @@ void display_8x8 (float (*data)[8], int mapLow, int mapHigh) {
       cursor++;
     }
   }
-  update_display();
+  if(update) {
+    display_update();
+  }
 }
 
 
-// for activation functions only right now
-// will extend to be general display function for any display
-void display (float (*data)[6], int mapLow, int mapHigh) {
-
-  // will be extended. for now, simply pack in 8x8 matrix and display on input display
-  float matrix[8][8];
-  set_matrix(matrix, -1);
-  for(int y=0; y<6; y++){
-    for(int x=0; x<6; x++){
-      matrix[y][x] = data[y][x];
+// for conv activations
+void display (float (*data)[6], int displayID, int mapLow, int mapHigh, bool update) {
+  int size = 6; // one dimension
+  // cursor is position in overall display arr (224 neopixels)
+  int cursor = 64 + (displayID-1) * size*size;
+  // serialize input matrix
+  // line
+  for (int y=0; y<size; y++) {
+    // column
+    for (int x=0; x<size; x++) {
+      // go backwards for even-numbered lines (due to wiring)
+      if(y%2 == 0) {
+        display_seq[cursor] = map(data[y][x], mapLow, mapHigh, 0, 255);
+      } else {
+        display_seq[cursor] = map(data[y][size-1 -x], mapLow, mapHigh, 0, 255);
+      }
+      cursor++;
     }
   }
-  display_8x8(matrix, mapLow, mapHigh);
+  if(update) {
+    display_update();
+  }
 }
 
 
 // for activation functions only right now
 // will extend to be general display function for any display
 void display (float (*data)[3][3], int mapLow, int mapHigh) {
-
+  /*
   // will be extended. for now, simply pack in 8x8 matrix and display on input display
   float matrix[8][8];
   set_matrix(matrix, -1);
@@ -114,11 +122,13 @@ void display (float (*data)[3][3], int mapLow, int mapHigh) {
     }
   }
   display_8x8(matrix, mapLow, mapHigh);
+  */
 }
 
 
 // for pool activation
 void display(float (*data)[2][2], int mapLow, int mapHigh) {
+  /*
   float matrix[8][8];
   set_matrix(matrix, mapLow);
   matrix[0][0] = data[0][0][0];
@@ -142,13 +152,14 @@ void display(float (*data)[2][2], int mapLow, int mapHigh) {
   matrix[7][7] = data[3][1][1];
 
   display_8x8(matrix, mapLow, mapHigh);
+  */
 }
 
 
 // set individual LEDs at starting point to end point
-void update_display() {
+void display_update() {
   int start = 0;
-  int length = 224;
+  int length = LED_COUNT;
   for(int i=0; i<length;i++) {
     strip.setPixelColor(i+start, strip.Color(
       0, 
@@ -158,4 +169,18 @@ void update_display() {
     ));
   }
   strip.show();
+}
+
+
+// blink teensy LED
+void blink() {
+  pinMode(13, OUTPUT);
+  digitalWrite(13, HIGH);
+  delay(50);
+  digitalWrite(13, LOW);
+  delay(50);
+  digitalWrite(13, HIGH);
+  delay(50);
+  digitalWrite(13, LOW);
+  delay(50);
 }
