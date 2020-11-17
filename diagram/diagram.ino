@@ -22,9 +22,9 @@ float relu[CONV_DEPTH][CONV_SIZE][CONV_SIZE];
 float pool[CONV_DEPTH][POOL_SIZE][POOL_SIZE];
 float lin[(POOL_SIZE*POOL_SIZE*CONV_DEPTH)];
 
-#define TOLERANCE 30            // threshold value for nn to pot matching
+#define TOLERANCE 15            // threshold value for nn to pot matching
 
-#define SPEED 1               // speed up all delays by factor n. Default = 1
+#define SPEED 50               // speed up all delays by factor n. Default = 1
 
 // Timers
 Chrono timer_predict;
@@ -33,8 +33,6 @@ Chrono timer_predict_steps;
 // count epochs
 unsigned int epoch = 0;
 
-int delta = 0;
-int lastDelta = 0;
 int predict_step = 0;
 
 float X[8][8];
@@ -60,8 +58,6 @@ void setup() {
   // setup phyiscal weights
   // set calibrate to false for faster boot
   weights_setup(false);
-  
-  weights_propagate();
 
   // move weights to match nn state
   Serial.println("set weights to initial neural net state");
@@ -81,6 +77,7 @@ void setup() {
 void loop() {
 
   // PREDICT AT INTERVAL
+
   if(timer_predict.isRunning()) {
 
     // STEP 0: predict, Display X input
@@ -90,6 +87,8 @@ void loop() {
       set_matrix(X, 0);
       // generate a random sample: fills passed matrix, returns Y
       Y = generate_sample(X);
+      // read weights from hardware
+      // weights_import();
       // predict + calcuate loss
       y = nn_predict(X, false);
       loss = nn_loss(y,Y);
@@ -136,7 +135,7 @@ void loop() {
     }
 
     // STEP 5: Train
-    if(timer_predict.hasPassed(4000/SPEED) && predict_step == 5) {
+    if(timer_predict.hasPassed(1800/SPEED) && predict_step == 5) {
       predict_step++;
 
       // train with current sample
@@ -159,96 +158,28 @@ void loop() {
     }
 
     // STEP 6: update weights
-    if(timer_predict.hasPassed(5000/SPEED) && predict_step == 6) {
+    if(timer_predict.hasPassed(1800/SPEED) && predict_step == 6) {
       // update physical weights after nn update
-      // delta ~ sum of distances to target position
-      delta = weights_update();
-      Serial.println(delta);
-      if(delta < TOLERANCE) {
+      // queue ~ weights currently in queue to be moved
+      int queue = weights_update();
+      if(queue == 0) {
         // move on to next step
         predict_step++;
       }
     }
 
-    if(timer_predict.hasPassed(5000/SPEED) && predict_step == 7) {
+    if(timer_predict.hasPassed(3000/SPEED) && predict_step == 7) {
       // stop all weights
+      prediction_indicator(0);
       weights_stop();
       // fade out pixels
       display_fadeout(SPEED);
-      prediction_indicator(0);
-      weights_propagate();
+      // weights_propagate();
 
       // restart interval
       predict_step = 0;
       timer_predict.restart();
     }
   }
-
-
-
-  /*
-
-  if( neuralnetTimer.check() == 1 ) {
-
-    // create array for sample and fill with zeros
-    float sample[8][8];
-    set_matrix(sample, 0);
-    // generate a random sample: fills passed matrix, returns Y
-    int Y = generate_sample(sample);
-
-    // stop all weights
-    weights_stop();
-
-    // predict sample
-    float y = nn_predict_slow(sample, false);
-    float loss = nn_loss(y,Y);
-
-    // show if prediction was false or correct
-    if((Y == 1 && y > 0) || (Y == 0 && y < 0)) {
-      prediction_indicator(1);
-    } else {
-      prediction_indicator(2);
-    }
-    weights_propagate();
-
-    // delta = weights_update();
-
-    // fade out pixels
-    display_fadeout();
-    prediction_indicator(0);
-    weights_propagate();
-
-    
-    // train with current sample
-    if(epoch < EPOCHS || loss > LOSS_TARGET) {
-      nn_train(sample, y, Y, false);
-
-
-      epoch++;
-      // Logging
-      //if(epoch % 20 == 0) {
-        Serial.print("train: epoch ");
-        Serial.print(epoch);
-        Serial.print("/");
-        Serial.print(EPOCHS);
-        Serial.print(" loss: ");
-        Serial.print(loss);
-        Serial.print("   data: ");
-        Serial.print(Y);
-        Serial.print(" predict: ");
-        Serial.println(y);
-      //}
-
-    // after training is done, visitors can interact and tune weights
-    } else {
-      // propagate physical status to neural network
-      // weights_import();
-    }
-  }
-  
-  // update physical weights
-  // delta ~ sum of distances to target position
-  delta = weights_update();
-  */
 
 }

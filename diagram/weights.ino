@@ -10,9 +10,11 @@
  *  Note: H-Bridge Motor pins are mirrored!
 */
 
+#define CONNECTED_BIASES 0
+
 #define N_WEIGHTS 57        // number of connected weights
 #define AVERAGE 3           // default value for averaging
-#define MAX_W_MOVING 5     // how many weights can be turned on simultaneosly
+#define MAX_W_MOVING 2     // how many weights can be turned on simultaneosly
 
 float min_map = 30.;        // minimum pot R value (will be updated in setup)
 float max_map = 1020.;      // maximum pot R value (will be updated in setup)
@@ -134,9 +136,7 @@ void weights_setup(bool calibrate) {
 
 void weights_init() {
   while(weights_update() > 0) {
-    delay(100);
   }
-  Serial.println("here now");
   // Turn all motors off
   weights_stop();
 }
@@ -145,39 +145,48 @@ void weights_init() {
 int weights_update() {
   int total_diff = 0;
   // count how many weights are to be moved -> cap at thresh
-  int n_weights_moving = 0;
+  int queue = 0;
   // go through all connected weights -> currently only 9 (conv 0)!
   for(int weight=0; weight<N_WEIGHTS; weight++){
+
+    // Hack: to make things work while biases are disconnected
+    if(CONNECTED_BIASES == 0 && ( (weight+1) % 10 == 0 || weight == 56)) {
+      continue;
+    }
     // read nn weight and compare to pot reading
     int diff = weight_read(weight) - map_float(*weights[weight], -2, 2, min_map, max_map);
     // add difference to total
     total_diff += abs(diff);
+
     // encode weight status: [LEFT,OFF,RIGHT] = [-1,0,1]
     int action = 0;
     // count how many motors need adjustment
     // 0/0 turn off
     if(abs(diff) < TOLERANCE) {
       action = 0;
+      weight_move(weight, action);
       // substract counter of weights moving
     // 1/0 turn left
-    } else if(diff > 0 && n_weights_moving < MAX_W_MOVING) {
+    } else if(diff > 0) {
       action = -1;
-      n_weights_moving++;
+      queue++;
     // 0/1 turn right
-    } else if(diff < 0 && n_weights_moving < MAX_W_MOVING) {
+    } else if(diff < 0) {
       action = 1;
-      n_weights_moving++;
+      queue++;
     }
-    weight_move(weight, action);
+
+    if(action != 0 && queue < MAX_W_MOVING) {
+      weight_move(weight, action);
+    }
+    
   }
 
   // pushes changes out to shift registers
   weights_propagate();
   // return avg. diff for all weights
   // return total_diff / N_WEIGHTS;
-  Serial.print("wm: ");
-  Serial.println(n_weights_moving);
-  return n_weights_moving;
+  return queue;
 }
 
 
@@ -361,6 +370,9 @@ void weights_calibrate() {
 
 
 // read physical weights (i.e. pots) and update neural net values with pot value
+
+// this creates a buggy feedback loop.
+// Need to find good boundary values in PyTorch first...
 void weights_import() {
   // get min and max weight values
   float weights_min = 0;
@@ -369,9 +381,6 @@ void weights_import() {
     weights_min = min(weights_min, *weights[i]);
     weights_max = max(weights_max, *weights[i]);
   }
-  Serial.print(weights_min);
-  Serial.print(" ");
-  Serial.println(weights_max);
   for(int i=0; i<N_WEIGHTS; i++) {
     *weights[i] = map_float(
       weight_read(i), 
