@@ -10,15 +10,14 @@
  *  Note: H-Bridge Motor pins are mirrored!
 */
 
-#define N_WEIGHTS 57     // number of connected weights
-#define AVERAGE 3       // default value for averaging
-#define MAX_W_MOVING 3     // how many weights can be turned on simultaneosly
-int w_moving = 0;
+#define N_WEIGHTS 57        // number of connected weights
+#define AVERAGE 3           // default value for averaging
+#define MAX_W_MOVING 5     // how many weights can be turned on simultaneosly
 
 float min_map = 30.;        // minimum pot R value (will be updated in setup)
-float max_map = 1020.;     // maximum pot R value (will be updated in setup)
+float max_map = 1020.;      // maximum pot R value (will be updated in setup)
   
-float *weights[N_WEIGHTS];     // arr of pointers to all nn_weights (incl. biases)
+float *weights[N_WEIGHTS];  // arr of pointers to all nn_weights (incl. biases)
 
 // MULTIPLEXER
 #define MULTIS 5				// number of connected multiplexers
@@ -134,50 +133,51 @@ void weights_setup(bool calibrate) {
 
 
 void weights_init() {
-  while(weights_update() > TOLERANCE) {
-    // weights_update() takes care of it already ...
+  while(weights_update() > 0) {
+    delay(100);
   }
+  Serial.println("here now");
   // Turn all motors off
-  for(int i=0; i<N_WEIGHTS; i++){
-    weight_move(i, 0);
-  }
-  weights_propagate();
+  weights_stop();
 }
 
 
 int weights_update() {
   int total_diff = 0;
+  // count how many weights are to be moved -> cap at thresh
+  int n_weights_moving = 0;
   // go through all connected weights -> currently only 9 (conv 0)!
   for(int weight=0; weight<N_WEIGHTS; weight++){
     // read nn weight and compare to pot reading
     int diff = weight_read(weight) - map_float(*weights[weight], -2, 2, min_map, max_map);
     // add difference to total
     total_diff += abs(diff);
+    // encode weight status: [LEFT,OFF,RIGHT] = [-1,0,1]
     int action = 0;
+    // count how many motors need adjustment
     // 0/0 turn off
     if(abs(diff) < TOLERANCE) {
       action = 0;
       // substract counter of weights moving
-      if(w_moving > 0) {
-        w_moving--;
-      }
     // 1/0 turn left
-    } else if(diff > 0 && w_moving < MAX_W_MOVING) {
+    } else if(diff > 0 && n_weights_moving < MAX_W_MOVING) {
       action = -1;
-      w_moving++;
+      n_weights_moving++;
     // 0/1 turn right
-    } else if(diff < 0 && w_moving < MAX_W_MOVING) {
+    } else if(diff < 0 && n_weights_moving < MAX_W_MOVING) {
       action = 1;
-      w_moving++;
+      n_weights_moving++;
     }
     weight_move(weight, action);
   }
 
   // pushes changes out to shift registers
   weights_propagate();
-
   // return avg. diff for all weights
-  return total_diff / N_WEIGHTS;
+  // return total_diff / N_WEIGHTS;
+  Serial.print("wm: ");
+  Serial.println(n_weights_moving);
+  return n_weights_moving;
 }
 
 
@@ -404,7 +404,8 @@ void prediction_indicator(int status) {
 /* HELPER FUNCTIONS ------------------------------------------- */
 
 float map_float(float x, float in_min, float in_max, float out_min, float out_max) {
- return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+ float o = (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+ return max(out_min, min(o, out_max));
 }
 
 // not an actual symlog like matplotlib has it.

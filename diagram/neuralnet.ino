@@ -37,17 +37,12 @@ float conv_weights[CONV_DEPTH][KERNEL_SIZE][KERNEL_SIZE] = {
 	}
 };
 float conv_bias[CONV_DEPTH] = { 0.3135831,  0.22460595, -0.14534172, -0.08389494 };
-float conv[CONV_DEPTH][CONV_SIZE][CONV_SIZE];
-float relu[CONV_DEPTH][CONV_SIZE][CONV_SIZE];
-float pool[CONV_DEPTH][POOL_SIZE][POOL_SIZE];
-
 float flatten_dy[CONV_DEPTH][POOL_SIZE][POOL_SIZE];
 float pool_dy[CONV_DEPTH][CONV_SIZE][CONV_SIZE];
 float relu_dy[CONV_DEPTH][CONV_SIZE][CONV_SIZE];
 
 float lin_weights[(POOL_SIZE*POOL_SIZE*CONV_DEPTH)] = {-0.23814952, -0.00449353, -0.18826473, -0.19283918, -0.0137749, 0.03753626, -0.10238257,  0.1483444 , -0.15213478,  0.22684252, 0.17132497, -0.21082073, -0.06222108,  0.01128066,  0.03647527, 0.05929357};
 float lin_bias[1] = {0.09810707};
-float lin[(POOL_SIZE*POOL_SIZE*CONV_DEPTH)];
 float lin_dy[(POOL_SIZE*POOL_SIZE*CONV_DEPTH)]; // derivative of lin with respect to y
 
 // vars for weight gradients
@@ -306,14 +301,14 @@ void nn_update_conv(float (*W)[KERNEL_SIZE][KERNEL_SIZE], float (*dw)[KERNEL_SIZ
 float nn_predict(float (*X)[INPUT_SIZE], bool log) {
 
 	// display sample on input screen
-  display(X, 0, 0, 1, true);
+  // display(X, 0, 0, 1, true);
 
 	nn_conv(X, conv);
 
-	display(conv[0], 1, -1, 1, false);
-	display(conv[1], 2, -1, 1, false);
-	display(conv[2], 3, -1, 1, false);
-	display(conv[3], 4, -1, 1, true);
+	// display(conv[0], 1, -1, 1, false);
+	// display(conv[1], 2, -1, 1, false);
+	// display(conv[2], 3, -1, 1, false);
+	// display(conv[3], 4, -1, 1, true);
 	
 	nn_relu(conv, relu);
 
@@ -331,10 +326,10 @@ float nn_predict(float (*X)[INPUT_SIZE], bool log) {
 
 	nn_pool(relu, pool);
 
-	display(pool[3], 5, 0, 1, false);
-	display(pool[2], 6, 0, 1, false);
-	display(pool[1], 7, 0, 1, false);
-	display(pool[0], 8, 0, 1, true);
+	// display(pool[3], 5, 0, 1, false);
+	// display(pool[2], 6, 0, 1, false);
+	// display(pool[1], 7, 0, 1, false);
+	// display(pool[0], 8, 0, 1, true);
 
 	// Logging
 	if(log) {
@@ -351,7 +346,7 @@ float nn_predict(float (*X)[INPUT_SIZE], bool log) {
 
 	nn_flatten(pool, lin);
 
-	display(lin, 9, 0, 1, true);
+	// display(lin, 9, 0, 1, true);
 	
 	// Logging
 	if(log) {
@@ -384,10 +379,12 @@ float nn_predict_slow(float (*X)[INPUT_SIZE], bool log) {
 
 	int timer = 200;
 
-	display_clear();
+	// display_clear();
 	delay(timer);
 	// display sample on input screen
-  display(X, 0, 0, 1, true);
+	// sample comes in with max value 1, but display maps to 1.6
+	// -> dimming input to match conv. brightness
+  display(X, 0, 0, 1.6, true);
 
   delay(timer*5);
 
@@ -407,7 +404,7 @@ float nn_predict_slow(float (*X)[INPUT_SIZE], bool log) {
 	nn_pool(relu, pool);
 	display(pool[3], 5, 0, 1, true);
 	display(pool[2], 6, 0, 1, true);
-	display(pool[1], 7, 0, 1, true);
+	display(pool[1], 7, 0, 1, false);
 	display(pool[0], 8, 0, 1, true);
 
 	delay(timer);

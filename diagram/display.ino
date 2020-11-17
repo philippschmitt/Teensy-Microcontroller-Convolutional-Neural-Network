@@ -12,13 +12,13 @@
 
 #define LED_PIN     1
 #define LED_COUNT   240 // total px count
-#define BRIGHTNESS  100
+#define BRIGHTNESS  150
 
 // Declare our NeoPixel strip object:
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRBW + NEO_KHZ800);
 
 // Display arr pointer -> updated with data in other vars
-int display_seq[LED_COUNT];
+float display_seq[LED_COUNT];
 
 
 void display_setup() {
@@ -68,9 +68,9 @@ void display (float (*data)[8], int displayID, int mapLow, int mapHigh, bool upd
     for (int x=0; x<size; x++) {
       // go backwards for even-numbered lines (due to wiring)
       if(y%2 == 0) {
-        display_seq[cursor] = map(data[y][x], mapLow, mapHigh, 0, 255);
+        display_seq[cursor] = map_float(data[y][x], mapLow, mapHigh, 0, 255);
       } else {
-        display_seq[cursor] = map(data[y][size-1 -x], mapLow, mapHigh, 0, 255);
+        display_seq[cursor] = map_float(data[y][size-1 -x], mapLow, mapHigh, 0, 255);
       }
       cursor++;
     }
@@ -93,9 +93,9 @@ void display (float (*data)[6], int displayID, int mapLow, int mapHigh, bool upd
     for (int x=0; x<size; x++) {
       // go backwards for even-numbered lines (due to wiring)
       if(y%2 == 0) {
-        display_seq[cursor] = map(data[y][x], mapLow, mapHigh, 0, 255);
+        display_seq[cursor] = map_float(data[y][x], mapLow, mapHigh, 0, 255);
       } else {
-        display_seq[cursor] = map(data[y][size-1 -x], mapLow, mapHigh, 0, 255);
+        display_seq[cursor] = map_float(data[y][size-1 -x], mapLow, mapHigh, 0, 255);
       }
       cursor++;
     }
@@ -124,9 +124,9 @@ void display(float (*data)[2], int displayID, int mapLow, int mapHigh, bool upda
     for (int x=0; x<size; x++) {
       // go backwards for even-numbered lines (due to wiring)
       if(y%2 == 0) {
-        display_seq[cursor] = map(data[y][x], mapLow, mapHigh, 0, 255);
+        display_seq[cursor] = map_float(data[y][x], mapLow, mapHigh, 0, 255);
       } else {
-        display_seq[cursor] = map(data[y][size-1 -x], mapLow, mapHigh, 0, 255);
+        display_seq[cursor] = map_float(data[y][size-1 -x], mapLow, mapHigh, 0, 255);
       }
       cursor++;
     }
@@ -201,13 +201,18 @@ void display_cycle() {
 
 
 // fade out all pixels
-void display_fadeout() {
-  int speed = 3;
-  for(int b=0; b<255; b+=speed){
+void display_fadeout(int speed) {
+  int speed_coeff = 3;
+  int delta = 1;
+
+  while(delta > 0) {
+    delta = 0;
     for(int i=0; i<LED_COUNT; i++){
-      display_seq[i] = max(display_seq[i]-speed, 0);
+      delta += display_seq[i];
+      display_seq[i] = max(display_seq[i]-speed*speed_coeff, 0);
     }
     display_update();
   }
+
 }
 
