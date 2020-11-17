@@ -190,7 +190,7 @@ void nn_flatten(float (*in)[POOL_SIZE][POOL_SIZE], float *out) {
 		for(int y=0; y<POOL_SIZE; y++){
 			for(int x=0; x<POOL_SIZE; x++){
 				// add to 0 so it does a real copy of val
-				out[i] = in[d][y][x];
+				out[i] = 0 + in[d][y][x];
 				i++;
 			}
 		}
@@ -202,7 +202,7 @@ void nn_flatten_backwards(float *X, float (*dy)[POOL_SIZE][POOL_SIZE]) {
 	for(int d=0; d<CONV_DEPTH; d++){
 		for(int y=0; y<POOL_SIZE; y++){
 			for(int x=0; x<POOL_SIZE; x++){
-				dy[d][y][x] = X[i];
+				dy[d][y][x] = 0 + X[i];
 				i++;
 			}
 		}
@@ -305,16 +305,17 @@ void nn_update_conv(float (*W)[KERNEL_SIZE][KERNEL_SIZE], float (*dw)[KERNEL_SIZ
 // compute gradient for a single sample
 float nn_predict(float (*X)[INPUT_SIZE], bool log) {
 
+	// display sample on input screen
+  display(X, 0, 0, 1, true);
+
 	nn_conv(X, conv);
 
-	// display convs
 	display(conv[0], 1, -1, 1, false);
 	display(conv[1], 2, -1, 1, false);
 	display(conv[2], 3, -1, 1, false);
-	display(conv[3], 4, -1, 1, true); // only send update after all are changed
+	display(conv[3], 4, -1, 1, true);
 	
 	nn_relu(conv, relu);
-	// display(relu[2], 0, 1);
 
 	// Logging
 	if(log) {
@@ -330,6 +331,11 @@ float nn_predict(float (*X)[INPUT_SIZE], bool log) {
 
 	nn_pool(relu, pool);
 
+	display(pool[3], 5, 0, 1, false);
+	display(pool[2], 6, 0, 1, false);
+	display(pool[1], 7, 0, 1, false);
+	display(pool[0], 8, 0, 1, true);
+
 	// Logging
 	if(log) {
 		Serial.println(" ");
@@ -344,6 +350,8 @@ float nn_predict(float (*X)[INPUT_SIZE], bool log) {
 	}
 
 	nn_flatten(pool, lin);
+
+	display(lin, 9, 0, 1, true);
 	
 	// Logging
 	if(log) {
@@ -371,9 +379,52 @@ float nn_predict(float (*X)[INPUT_SIZE], bool log) {
 }
 
 
-float nn_train(float (*X)[INPUT_SIZE], float Y, bool logging) {
+// a timed prediction slowed down so steps are visible on the installation
+float nn_predict_slow(float (*X)[INPUT_SIZE], bool log) {
+
+	int timer = 200;
+
+	display_clear();
+	delay(timer);
+	// display sample on input screen
+  display(X, 0, 0, 1, true);
+
+  delay(timer*5);
+
+	nn_conv(X, conv);
+
+	display(conv[0], 1, -1, 1, false);
+	display(conv[1], 2, -1, 1, false);
+	display(conv[2], 3, -1, 1, false);
+	display(conv[3], 4, -1, 1, true);
+
+	delay(timer);
+
+	nn_relu(conv, relu);
+
+	delay(timer);
+
+	nn_pool(relu, pool);
+	display(pool[3], 5, 0, 1, true);
+	display(pool[2], 6, 0, 1, true);
+	display(pool[1], 7, 0, 1, true);
+	display(pool[0], 8, 0, 1, true);
+
+	delay(timer);
+
+	nn_flatten(pool, lin);
+	display(lin, 9, 0, 1, true);
+
+	delay(timer);
+
+	float y = nn_linear(lin);
+	return y;
+}
+
+
+float nn_train(float (*X)[INPUT_SIZE], float y, float Y, bool logging) {
 	// predict y
-	float y = nn_predict(X, logging);
+	// float y = nn_predict(X, logging);
 	// Loss
 	float L = nn_loss(y,Y);
 	// Derivative of Loss (it's just easier to calc. here and pass to functions)

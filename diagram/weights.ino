@@ -10,9 +10,10 @@
  *  Note: H-Bridge Motor pins are mirrored!
 */
 
-#define N_WEIGHTS 40     // number of connected weights
-#define TOLERANCE 30    // threshold value for nn to pot matching
+#define N_WEIGHTS 57     // number of connected weights
 #define AVERAGE 3       // default value for averaging
+#define MAX_W_MOVING 3     // how many weights can be turned on simultaneosly
+int w_moving = 0;
 
 float min_map = 30.;        // minimum pot R value (will be updated in setup)
 float max_map = 1020.;     // maximum pot R value (will be updated in setup)
@@ -20,13 +21,14 @@ float max_map = 1020.;     // maximum pot R value (will be updated in setup)
 float *weights[N_WEIGHTS];     // arr of pointers to all nn_weights (incl. biases)
 
 // MULTIPLEXER
-#define MULTIS 4				// number of connected multiplexers
-int MULTI_EN[MULTIS] = {6,7,8,9}; // pins for MUX on/off toggles (5x) 6-10
+#define MULTIS 5				// number of connected multiplexers
+int MULTI_EN[MULTIS] = {6,7,8,9,10}; // pins for MUX on/off toggles (5x) 6-10
 int controlPins[] = {2, 3, 4, 5};
 int MULTI_Z = A0;       // = PIN 14
+int W40_Z = A2;         // = PIN 16. This one weight didn't fit on the multiplexers and got its own pin
 
 // SHIFT REGISTER
-#define SHIFTS 12       // number of chained shift REGISTERS
+#define SHIFTS 17       // number of chained shift REGISTERS
 #define SR_LATCH_PIN 12 // Pin connected to ST_CP of 74HC595
 #define SR_CLOCK_PIN 11 // Pin connected to SH_CP of 74HC595
 #define SR_DATA_PIN  15 // Pin connected to DS of 74HC595
@@ -41,6 +43,7 @@ void weights_setup(bool calibrate) {
   }
   // set mux input
   pinMode(MULTI_Z, INPUT);
+  pinMode(W40_Z, INPUT);
   // disable all mux boards
   for(int i=0; i<MULTIS; i++){
     pinMode(MULTI_EN[i], OUTPUT);
@@ -87,6 +90,46 @@ void weights_setup(bool calibrate) {
   weights[17] = &conv_weights[1][2][1];
   weights[18] = &conv_weights[1][2][2];
   weights[19] = &conv_bias[1];
+
+  weights[20] = &conv_weights[2][0][0];
+  weights[21] = &conv_weights[2][0][1];
+  weights[22] = &conv_weights[2][0][2];
+  weights[23] = &conv_weights[2][1][0];
+  weights[24] = &conv_weights[2][1][1];
+  weights[25] = &conv_weights[2][1][2];
+  weights[26] = &conv_weights[2][2][0];
+  weights[27] = &conv_weights[2][2][1];
+  weights[28] = &conv_weights[2][2][2];
+  weights[29] = &conv_bias[2];
+
+  weights[30] = &conv_weights[3][0][0];
+  weights[31] = &conv_weights[3][0][1];
+  weights[32] = &conv_weights[3][0][2];
+  weights[33] = &conv_weights[3][1][0];
+  weights[34] = &conv_weights[3][1][1];
+  weights[35] = &conv_weights[3][1][2];
+  weights[36] = &conv_weights[3][2][0];
+  weights[37] = &conv_weights[3][2][1];
+  weights[38] = &conv_weights[3][2][2];
+  weights[39] = &conv_bias[3];
+
+  weights[40] = &lin_weights[0];
+  weights[41] = &lin_weights[1];
+  weights[42] = &lin_weights[2];
+  weights[43] = &lin_weights[3];
+  weights[44] = &lin_weights[4];
+  weights[45] = &lin_weights[5];
+  weights[46] = &lin_weights[6];
+  weights[47] = &lin_weights[7];
+  weights[48] = &lin_weights[8];
+  weights[49] = &lin_weights[9];
+  weights[50] = &lin_weights[10];
+  weights[51] = &lin_weights[11];
+  weights[52] = &lin_weights[12];
+  weights[53] = &lin_weights[13];
+  weights[54] = &lin_weights[14];
+  weights[55] = &lin_weights[15];
+  weights[56] = &lin_bias[0];
 }
 
 
@@ -94,6 +137,11 @@ void weights_init() {
   while(weights_update() > TOLERANCE) {
     // weights_update() takes care of it already ...
   }
+  // Turn all motors off
+  for(int i=0; i<N_WEIGHTS; i++){
+    weight_move(i, 0);
+  }
+  weights_propagate();
 }
 
 
@@ -109,12 +157,18 @@ int weights_update() {
     // 0/0 turn off
     if(abs(diff) < TOLERANCE) {
       action = 0;
+      // substract counter of weights moving
+      if(w_moving > 0) {
+        w_moving--;
+      }
     // 1/0 turn left
-    } else if(diff > 0) {
+    } else if(diff > 0 && w_moving < MAX_W_MOVING) {
       action = -1;
+      w_moving++;
     // 0/1 turn right
-    } else if(diff < 0) {
+    } else if(diff < 0 && w_moving < MAX_W_MOVING) {
       action = 1;
+      w_moving++;
     }
     weight_move(weight, action);
   }
@@ -150,6 +204,26 @@ int weight_read(int weight, int avg) {
   int selected_mux = floor(weight / 10); // MUX has 16 capacity, but I only connect 10 per mux for the first 4 of them
   // match total weight to board channels
   int selected_channel = weight - selected_mux * 10;
+
+  // overwrite for MUX 5
+  if(weight == 40) {
+    // this is lin weight 0: piped past all MUX ctrls directly to Teensy
+    analogRead(W40_Z);
+    int reading = analogRead(W40_Z);
+    if(avg < 2) {
+      return reading;
+    } else {
+      for(int i=0; i<avg-1; i++){
+        reading += analogRead(W40_Z);
+      }
+      return reading / avg;
+    }
+
+  } else if(weight > 40) {
+    selected_mux = 4;
+    selected_channel = 16 - (weight - 40);
+  }
+
   // set control to channel
   digitalWrite(MULTI_EN[selected_mux], LOW);
   //delay(1);
@@ -178,10 +252,11 @@ float weight_read_multiple(int start, int weights) {
   for(int i=start; i<start+weights; i++){
     // Function currently ignores bias weights, 
     // as those aren't currently connected ...
-    if((i+1)%10 != 0) {
-      avg += weight_read(i);
-      count ++;
+    if((i+1)%10 == 0 || i==56) {
+      continue;
     }
+    avg += weight_read(i);
+    count ++;
   }
   return avg / count;
 }
@@ -196,11 +271,15 @@ float weight_read_multiple(int start, int weights) {
 void weight_move(int weight, int action) {
   // determine board (i.e. PCB) with 3 shift registers each ... currently (!)
   int board = floor(weight / 10);
+  // overwrite for lin layer board
+  if(weight >= 40) {
+    board = 4;
+  }
   // determine shift register (3 per board)
   int sr = SHIFTS -1 - board * 3 - floor((weight-board*10) / 4);
-  // old: int sr = SHIFTS -1 - floor(weight / 4);
   // determine pos on register
   int pos = ((weight-board*10) % 4) * 2;
+
   if(action == 0) {
     bitWrite(srs[sr], pos,     0);
     bitWrite(srs[sr], pos + 1, 0);
@@ -213,6 +292,14 @@ void weight_move(int weight, int action) {
     bitWrite(srs[sr], pos,     0);   
     bitWrite(srs[sr], pos + 1, 1);
   }
+}
+
+
+void weights_stop() {
+  for(int i=0; i<N_WEIGHTS; i++){
+    weight_move(i,0);
+  }
+  weights_propagate();
 }
 
 
@@ -273,13 +360,58 @@ void weights_calibrate() {
 }
 
 
+// read physical weights (i.e. pots) and update neural net values with pot value
+void weights_import() {
+  // get min and max weight values
+  float weights_min = 0;
+  float weights_max = 0;
+  for(int i=0; i<N_WEIGHTS; i++){
+    weights_min = min(weights_min, *weights[i]);
+    weights_max = max(weights_max, *weights[i]);
+  }
+  Serial.print(weights_min);
+  Serial.print(" ");
+  Serial.println(weights_max);
+  for(int i=0; i<N_WEIGHTS; i++) {
+    *weights[i] = map_float(
+      weight_read(i), 
+      min_map, 
+      max_map, 
+      //weights_min, 
+      //weights_max
+      -2,
+      2
+    );
+  }
+}
+
+
+// set prediction R/W LED
+// status: 0 = off
+//         1 = correct prediction
+//         2 = false prediction
+void prediction_indicator(int status) {
+  bitWrite(srs[0], 2, 0);
+  bitWrite(srs[0], 4, 0);
+  if(status == 1) {
+    bitWrite(srs[0], 4, 1);
+  } else if(status == 2) {
+    bitWrite(srs[0], 2, 1);
+  }
+}
+
+
 /* HELPER FUNCTIONS ------------------------------------------- */
 
 float map_float(float x, float in_min, float in_max, float out_min, float out_max) {
  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
-
+// not an actual symlog like matplotlib has it.
+// a hotglue version, so to speak
+float map_symlog(float x, float in_min, float in_max, float out_min, float out_max) {
+  return 1;
+}
 
 
 void blinkShifts() {
