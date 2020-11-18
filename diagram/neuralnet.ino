@@ -13,6 +13,10 @@
 #include <math.h>
 #define EULER 2.718281828459045235360287471352
 
+// computed weight range in jupyter / pytorch:
+float conv_weight_range[2] = {-0.6, 1.0};
+float lin_weight_range[2] = {-1.0, 1.0};
+
 // for now, weights are initialized with distribution copied from pytorch currently
 float conv_weights[CONV_DEPTH][KERNEL_SIZE][KERNEL_SIZE] = {
 	{
@@ -269,6 +273,8 @@ void nn_zero_grad() {
 void nn_update_lin(float *W, float *dw, float dL) {
 	for(int i=0; i<((POOL_SIZE)^2*CONV_DEPTH); i++){
 		W[i] -= L_RATE * dw[i];
+		// limit conv to pytorch computed limits
+		W[i] = min(lin_weight_range[1], max(lin_weight_range[0], W[i]));
 	}
 	// bias: db = dL
 	lin_bias[0] -= dL * L_RATE;
@@ -281,6 +287,8 @@ void nn_update_conv(float (*W)[KERNEL_SIZE][KERNEL_SIZE], float (*dw)[KERNEL_SIZ
 		for(int y=0; y<KERNEL_SIZE; y++){
 		  for(int x=0; x<KERNEL_SIZE; x++){
 		  	W[d][y][x] -= dw[d][y][x] * L_RATE;
+		  	// limit conv to pytorch computed limits
+		  	W[d][y][x] = min(conv_weight_range[1], max(conv_weight_range[0], W[d][y][x]));
 		  }
 		}
 	}
@@ -299,17 +307,7 @@ void nn_update_conv(float (*W)[KERNEL_SIZE][KERNEL_SIZE], float (*dw)[KERNEL_SIZ
 
 // compute gradient for a single sample
 float nn_predict(float (*X)[INPUT_SIZE], bool log) {
-
-	// display sample on input screen
-  // display(X, 0, 0, 1, true);
-
-	nn_conv(X, conv);
-
-	// display(conv[0], 1, -1, 1, false);
-	// display(conv[1], 2, -1, 1, false);
-	// display(conv[2], 3, -1, 1, false);
-	// display(conv[3], 4, -1, 1, true);
-	
+	nn_conv(X, conv);	
 	nn_relu(conv, relu);
 
 	// Logging
@@ -326,11 +324,6 @@ float nn_predict(float (*X)[INPUT_SIZE], bool log) {
 
 	nn_pool(relu, pool);
 
-	// display(pool[3], 5, 0, 1, false);
-	// display(pool[2], 6, 0, 1, false);
-	// display(pool[1], 7, 0, 1, false);
-	// display(pool[0], 8, 0, 1, true);
-
 	// Logging
 	if(log) {
 		Serial.println(" ");
@@ -345,8 +338,6 @@ float nn_predict(float (*X)[INPUT_SIZE], bool log) {
 	}
 
 	nn_flatten(pool, lin);
-
-	// display(lin, 9, 0, 1, true);
 	
 	// Logging
 	if(log) {
@@ -374,51 +365,6 @@ float nn_predict(float (*X)[INPUT_SIZE], bool log) {
 }
 
 
-// a timed prediction slowed down so steps are visible on the installation
-float nn_predict_slow(float (*X)[INPUT_SIZE], bool log) {
-
-	int timer = 200;
-
-	// display_clear();
-	delay(timer);
-	// display sample on input screen
-	// sample comes in with max value 1, but display maps to 1.6
-	// -> dimming input to match conv. brightness
-  display(X, 0, 0, 1.6, true);
-
-  delay(timer*5);
-
-	nn_conv(X, conv);
-
-	display(conv[0], 1, -1, 1, false);
-	display(conv[1], 2, -1, 1, false);
-	display(conv[2], 3, -1, 1, false);
-	display(conv[3], 4, -1, 1, true);
-
-	delay(timer);
-
-	nn_relu(conv, relu);
-
-	delay(timer);
-
-	nn_pool(relu, pool);
-	display(pool[3], 5, 0, 1, true);
-	display(pool[2], 6, 0, 1, true);
-	display(pool[1], 7, 0, 1, false);
-	display(pool[0], 8, 0, 1, true);
-
-	delay(timer);
-
-	nn_flatten(pool, lin);
-	display(lin, 9, 0, 1, true);
-
-	delay(timer);
-
-	float y = nn_linear(lin);
-	return y;
-}
-
-
 float nn_train(float (*X)[INPUT_SIZE], float y, float Y, bool logging) {
 	// predict y
 	// float y = nn_predict(X, logging);
@@ -441,8 +387,6 @@ float nn_train(float (*X)[INPUT_SIZE], float y, float Y, bool logging) {
 	  Serial.print(Y);
 	  Serial.print(" ");
 	}
-
-  // display(conv_weights, -1, 1);
 
 	return L;
 }

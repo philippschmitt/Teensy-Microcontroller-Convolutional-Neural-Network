@@ -7,7 +7,7 @@
 #include <Chrono.h>             // Time management
 
 #define EPOCHS          1000    // def: 20000
-#define L_RATE          0.2     // def: 0.001
+#define L_RATE          0.1     // def: 0.001
 #define LOSS_TARGET     0.05    // target loss -> network will train until reached
 
 #define INPUT_SIZE      8
@@ -17,14 +17,16 @@
 #define POOLING_KERNEL  3
 #define POOL_SIZE       2       // divide: CONV_SIZE / POOLING_KERNEL
 
+#define MAX_W_MOVING 2     // how many weights can be turned on simultaneosly
+
 float conv[CONV_DEPTH][CONV_SIZE][CONV_SIZE];
 float relu[CONV_DEPTH][CONV_SIZE][CONV_SIZE];
 float pool[CONV_DEPTH][POOL_SIZE][POOL_SIZE];
 float lin[(POOL_SIZE*POOL_SIZE*CONV_DEPTH)];
 
-#define TOLERANCE 15            // threshold value for nn to pot matching
+#define TOLERANCE 30            // threshold value for nn to pot matching
 
-#define SPEED 50               // speed up all delays by factor n. Default = 1
+#define SPEED 1               // speed up all delays by factor n. Default = 1
 
 // Timers
 Chrono timer_predict;
@@ -101,25 +103,25 @@ void loop() {
     // STEP 1: Display conv
     if(timer_predict.hasPassed(1200/SPEED) && predict_step == 1) {
       predict_step++;
-      display(conv[0], 1, -1, 1, false);
-      display(conv[1], 2, -1, 1, false);
-      display(conv[2], 3, -1, 1, false);
-      display(conv[3], 4, -1, 1, true);
+      display(conv[0], 1, -1.5, 2.5, false);
+      display(conv[1], 2, -1.5, 2.5, false);
+      display(conv[2], 3, -1.5, 2.5, false);
+      display(conv[3], 4, -1.5, 2.5, true);
     }
 
     // STEP 2: Display pool
     if(timer_predict.hasPassed(1300/SPEED) && predict_step == 2) {
       predict_step++;
-      display(pool[3], 5, 0, 1, false);
-      display(pool[2], 6, 0, 1, false);
-      display(pool[1], 7, 0, 1, false);
-      display(pool[0], 8, 0, 1, true);
+      display(pool[3], 5, 0, 2.5, false);
+      display(pool[2], 6, 0, 2.5, false);
+      display(pool[1], 7, 0, 2.5, false);
+      display(pool[0], 8, 0, 2.5, true);
     }
 
     // STEP 3: Display Lin
     if(timer_predict.hasPassed(1400/SPEED) && predict_step == 3) {
       predict_step++;
-      display(lin, 9, 0, 1, true);
+      display(lin, 9, 0, 2.5, true);
     }
 
     // STEP 4: Display Output
@@ -161,7 +163,16 @@ void loop() {
     if(timer_predict.hasPassed(1800/SPEED) && predict_step == 6) {
       // update physical weights after nn update
       // queue ~ weights currently in queue to be moved
-      int queue = weights_update();
+      int queue = weights_update(MAX_W_MOVING);
+      display(conv[0], 1, -1.5, 2.5, false);
+      display(conv[1], 2, -1.5, 2.5, false);
+      display(conv[2], 3, -1.5, 2.5, false);
+      display(conv[3], 4, -1.5, 2.5, false);
+      display(pool[3], 5, 0, 2.5, false);
+      display(pool[2], 6, 0, 2.5, false);
+      display(pool[1], 7, 0, 2.5, false);
+      display(pool[0], 8, 0, 2.5, false);
+      display(lin, 9, 0, 2.5, true);
       if(queue == 0) {
         // move on to next step
         predict_step++;
@@ -181,5 +192,10 @@ void loop() {
       timer_predict.restart();
     }
   }
+
+
+  // DETECT MANUAL WEIGHT DIAL
+  //int delta = weights_delta();
+  //Serial.println(delta);
 
 }

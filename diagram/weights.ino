@@ -14,10 +14,9 @@
 
 #define N_WEIGHTS 57        // number of connected weights
 #define AVERAGE 3           // default value for averaging
-#define MAX_W_MOVING 2     // how many weights can be turned on simultaneosly
 
-float min_map = 30.;        // minimum pot R value (will be updated in setup)
-float max_map = 1020.;      // maximum pot R value (will be updated in setup)
+float min_map = 32.;        // minimum pot R value (will be updated in setup)
+float max_map = 1018.;      // maximum pot R value (will be updated in setup)
   
 float *weights[N_WEIGHTS];  // arr of pointers to all nn_weights (incl. biases)
 
@@ -135,26 +134,39 @@ void weights_setup(bool calibrate) {
 
 
 void weights_init() {
-  while(weights_update() > 0) {
+  while(weights_update(MAX_W_MOVING) > 0) {
   }
   // Turn all motors off
   weights_stop();
 }
 
 
-int weights_update() {
+int weights_update(int max_concurrent) {
   int total_diff = 0;
   // count how many weights are to be moved -> cap at thresh
   int queue = 0;
+  // set range for weight mappng
+  int weights_min = 0;
+  int weights_max = 0;
   // go through all connected weights -> currently only 9 (conv 0)!
   for(int weight=0; weight<N_WEIGHTS; weight++){
-
     // Hack: to make things work while biases are disconnected
     if(CONNECTED_BIASES == 0 && ( (weight+1) % 10 == 0 || weight == 56)) {
       continue;
     }
+    // set range for weight mappng
+    // it's a conv weight!
+    if(weight < 40) {
+      weights_min = conv_weight_range[0];
+      weights_max = conv_weight_range[1];
+    } else {
+      weights_min = lin_weight_range[0];
+      weights_max = lin_weight_range[1];
+    }
     // read nn weight and compare to pot reading
-    int diff = weight_read(weight) - map_float(*weights[weight], -2, 2, min_map, max_map);
+    float mapped_value = map_float(*weights[weight], weights_min, weights_max, min_map, max_map);
+    int read_value = weight_read(weight);
+    int diff = read_value - mapped_value;
     // add difference to total
     total_diff += abs(diff);
 
@@ -162,7 +174,7 @@ int weights_update() {
     int action = 0;
     // count how many motors need adjustment
     // 0/0 turn off
-    if(abs(diff) < TOLERANCE) {
+    if(abs(diff) < TOLERANCE || mapped_value < min_map || mapped_value > max_map) {
       action = 0;
       weight_move(weight, action);
       // substract counter of weights moving
@@ -176,7 +188,7 @@ int weights_update() {
       queue++;
     }
 
-    if(action != 0 && queue < MAX_W_MOVING) {
+    if(action != 0 && queue < max_concurrent) {
       weight_move(weight, action);
     }
     
@@ -322,7 +334,7 @@ void weights_calibrate() {
     weight_move(i, -1);
   }
   weights_propagate();
-  delay(1000);
+  delay(15000);
   int weight_avg = 0;
   while( abs(weight_avg - prev_weight_avg) > TOLERANCE ) {
     prev_weight_avg = weight_avg;
@@ -369,27 +381,48 @@ void weights_calibrate() {
 }
 
 
+// returns the total weight delta (i.e. diff from status to target)
+// int weights_delta() {
+//   for(int weight=0; weight<N_WEIGHTS; weight++){
+//     // Hack: to make things work while biases are disconnected
+//     if(CONNECTED_BIASES == 0 && ( (weight+1) % 10 == 0 || weight == 56)) {
+//       continue;
+//     }
+//     // read nn weight and compare to pot reading
+//     // int diff = weight_read(weight) - map_float(*weights[weight], -2, 2, min_map, max_map);
+//     // add difference to total
+//     total_diff += abs(diff);
+//   }
+// }
+
 // read physical weights (i.e. pots) and update neural net values with pot value
 
 // this creates a buggy feedback loop.
 // Need to find good boundary values in PyTorch first...
 void weights_import() {
-  // get min and max weight values
   float weights_min = 0;
   float weights_max = 0;
-  for(int i=0; i<N_WEIGHTS; i++){
-    weights_min = min(weights_min, *weights[i]);
-    weights_max = max(weights_max, *weights[i]);
-  }
-  for(int i=0; i<N_WEIGHTS; i++) {
-    *weights[i] = map_float(
-      weight_read(i), 
+  for(int weight=0; weight<N_WEIGHTS; weight++) {
+    // Hack: to make things work while biases are disconnected
+    if(CONNECTED_BIASES == 0 && ( (weight+1) % 10 == 0 || weight == 56)) {
+      continue;
+    }
+
+    // switch min max values for conv layer and lin layer
+    if(weight<40) {
+      weights_min = conv_weight_range[0];
+      weights_max = conv_weight_range[1];
+    } else {
+      weights_min = lin_weight_range[0];
+      weights_max = lin_weight_range[1];
+    }
+
+    *weights[weight] = map_float(
+      weight_read(weight), 
       min_map, 
       max_map, 
-      //weights_min, 
-      //weights_max
-      -2,
-      2
+      weights_min, 
+      weights_max
     );
   }
 }
@@ -408,7 +441,6 @@ void prediction_indicator(int status) {
     bitWrite(srs[0], 2, 1);
   }
 }
-
 
 /* HELPER FUNCTIONS ------------------------------------------- */
 
