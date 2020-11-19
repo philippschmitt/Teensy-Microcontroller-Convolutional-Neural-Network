@@ -10,15 +10,7 @@
  *  Note: H-Bridge Motor pins are mirrored!
 */
 
-#define CONNECTED_BIASES 0
-
-#define N_WEIGHTS 57        // number of connected weights
 #define AVERAGE 3           // default value for averaging
-
-float min_map = 32.;        // minimum pot R value (will be updated in setup)
-float max_map = 1018.;      // maximum pot R value (will be updated in setup)
-  
-float *weights[N_WEIGHTS];  // arr of pointers to all nn_weights (incl. biases)
 
 // MULTIPLEXER
 #define MULTIS 5				// number of connected multiplexers

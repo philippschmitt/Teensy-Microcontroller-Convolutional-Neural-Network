@@ -13,10 +13,6 @@
 #include <math.h>
 #define EULER 2.718281828459045235360287471352
 
-// computed weight range in jupyter / pytorch:
-float conv_weight_range[2] = {-0.6, 1.0};
-float lin_weight_range[2] = {-1.0, 1.0};
-
 // for now, weights are initialized with distribution copied from pytorch currently
 float conv_weights[CONV_DEPTH][KERNEL_SIZE][KERNEL_SIZE] = {
 	{
