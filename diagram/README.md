@@ -13,7 +13,7 @@ A working implementation of a convolutional neural network written in Arduino C 
 ## Usage
 The neural net implementation itself is in _neuralnet.ino_: `nn_predict()` computes the gradient for a single sample. `nn_train()` completes a single training step.
 
-It includes the necessary functions like `nn_conv()` for a forward pass, nn_conv_backwards()` to calculate gradient descent loss, and `nn_update_conv()` to update weights.
+It includes the necessary functions like `nn_conv()` for a forward pass, `nn_conv_backwards()` to calculate gradient descent loss, and `nn_update_conv()` to update weights.
 
 See `diagram.ino` for general operating and order of commands. The file includes other code: it's for [an interactive art piece]([url](https://philippschmitt.com/work/mark-ii-convolutional-neural-network)) that includes LED displays for layer outputs as well as motorized potentiometers that encode the network's weights.
 
