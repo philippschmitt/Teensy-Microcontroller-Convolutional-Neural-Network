@@ -1,7 +1,7 @@
 # Physical Neural Net
 A working implementation of a convolutional neural network written in Arduino C for Teensy 3.6.
 
-Thanks to [https://github.com/Atcold](Alfredo Canziani) for explaining the math to me!
+Thanks to [Alfredo Canziani](https://github.com/Atcold) for explaining the math to me!
 
 ## Architecture:
 ```
