@@ -1,4 +1,4 @@
-# Physical Neural Net
+# A convolutional neural network implemented on a Teensy 3.6 Microcontroller
 A working implementation of a convolutional neural network written in Arduino C for Teensy 3.6.
 
 The code in this repository was written for [an interactive art piece](https://philippschmitt.com/work/mark-ii-convolutional-neural-network). It is not a reusable template for your own project, sorry! I'm open sourcing it nonetheless hoping it might be helpful to someone.
