@@ -1,7 +1,10 @@
 # Physical Neural Net
 A working implementation of a convolutional neural network written in Arduino C for Teensy 3.6.
 
-Thanks to [Alfredo Canziani](https://github.com/Atcold) for explaining the math to me!
+The code in this repository was written for [an interactive art piece](https://philippschmitt.com/work/mark-ii-convolutional-neural-network). It is not a reusable template for your own project, sorry! I'm open sourcing it nonetheless hoping it might be helpful to someone.
+
+Thanks to [Yann LeCun](http://yann.lecun.com) for guidance and to [Alfredo Canziani](https://github.com/Atcold) for explaining the math to me!
+
 
 ## Architecture:
 ```
@@ -17,7 +20,6 @@ The neural net implementation itself is in _neuralnet.ino_: `nn_predict()` compu
 
 It includes the necessary functions like `nn_conv()` for a forward pass, `nn_conv_backwards()` to calculate gradient descent loss, and `nn_update_conv()` to update weights.
 
-See `diagram.ino` for general operating and order of commands. The file includes other code: it's for [an interactive art piece]([url](https://philippschmitt.com/work/mark-ii-convolutional-neural-network)) that includes LED displays for layer outputs as well as motorized potentiometers that encode the network's weights.
+Note: Initial weights are pre-generated in `Network training.ipynb` and hardcoded.
 
-Note: Initial weights are pre-generated in `Network training.ipynb` (for suitable distribution) and hardcoded on the Teensy.
-
+See `diagram.ino` for general operating and order of commands. The file includes other code: LED displays for layer outputs as well as motorized potentiometers that encode the network's weights.
